@@ -62,7 +62,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	return nRetCode;
 }
 
-inline void DisplayHistogram(Mat &hist, HistInfo &histInfo, string window) {
+inline void DisplayHistogram(Mat &hist, HistInfo &histInfo, string window, string filename) {
 	//for displaying the histogram
 	double maxVal=0;
     minMaxLoc(hist, 0, &maxVal, 0, 0);
@@ -77,6 +77,8 @@ inline void DisplayHistogram(Mat &hist, HistInfo &histInfo, string window) {
 				Scalar::all(intensity),
 				CV_FILLED );
 		}
+		if(!filename.empty())
+			imwrite(filename, histImg);
 		namedWindow( window, 1 );
 		imshow( window, histImg );
 		//cvWaitKey();
@@ -306,14 +308,14 @@ void categorizer::train_classifiers() {
 		}
 		normalize( total_hist, total_hist, 0, 1, NORM_MINMAX, -1, Mat() );
 		trained_hists[category] = total_hist;
-		DisplayHistogram(total_hist,histInfo,category);
+		DisplayHistogram(total_hist,histInfo,category,string(vocab_folder + category + "_hist.png"));
 
 		Mat train_data_hog = positive_hog[category], train_labels_hog = Mat::ones(train_data_hog.rows, 1, CV_32S);
 		// Negative training data has labels 0
 		train_data_hog.push_back(negative_hog[category]);
 		m = Mat::ones(negative_hog[category].rows, 1, CV_32S) * -1;
 		train_labels_hog.push_back(m);
-		cout << "Rows: " << train_data_hog.rows << ", Cols: " << train_data_hog.cols << endl;
+		//cout << "Rows: " << train_data_hog.rows << ", Cols: " << train_data_hog.cols << endl;
 
 		// Train SVM!
 		svms_surf[category].train(train_data_surf, train_labels_surf);
@@ -331,6 +333,10 @@ void categorizer::train_classifiers() {
 		FileStorage fs(svm_filename, FileStorage::WRITE);
 		fs << "hist" << total_hist;
 		fs.release();
+		//Mat svmMat = downproject(svms_surf[category], train_data_surf, train_labels_surf);
+		//imshow("SVM", svmMat);
+		//imwrite("SVM.jpg", svmMat);
+		waitKey();
 		cout << "Trained and saved SVM for category " << category << endl;
 	}
 	//cvWaitKey();
@@ -401,7 +407,7 @@ void categorizer::categorize() {
 		bowDescriptorExtractor->compute(frame_g, kp, test_surf);
 
 		ComputeHistogram(frame_hsv,histInfo,&test_hist);
-		DisplayHistogram(test_hist,histInfo,"current");
+		DisplayHistogram(test_hist,histInfo,"current","");
 
 		vector<float> descriptors;
 		Mat frameg_small;
@@ -409,7 +415,7 @@ void categorizer::categorize() {
 		hogDescriptor->compute(frameg_small, descriptors);
 		Mat test_hog = Mat(descriptors);
 		transpose(test_hog,test_hog);
-		cout << "Rows: " << test_hog.rows << ", Cols: " << test_hog.cols << endl;
+		//cout << "Rows: " << test_hog.rows << ", Cols: " << test_hog.cols << endl;
 
 		// Predict using SVMs for all catgories, choose the prediction with the most negative signed distance measure
 		float best_score = 777, best_score2 = -1, best_score3 = -1;
